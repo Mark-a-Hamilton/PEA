@@ -43,7 +43,7 @@ A practical guide explaining:
 
 ---
 
-### **📘 [Profiles & Structure](.\Docs\profiles.md)**  
+### **📘 [Profiles & Structure](./Docs/profiles.md)**  
 A technical breakdown of:
 
 - how `lin-default.json` defines sections, markers, and subsections  
@@ -54,7 +54,7 @@ A technical breakdown of:
 
 ---
 
-### **📘 [Analysis Modules](.\Docs\modules.md)**  
+### **📘 [Analysis Modules](./Docs/modules.md)**  
 A developer‑focused overview describing:
 
 - each analysis module  
@@ -76,7 +76,7 @@ A methodology guide explaining:
 
 ---
 
-### **📘 [Installation](.\Docs\nstall.md)**  
+### **📘 [Installation](./Docs/nstall.md)**  
 The Privilege‑Escalation‑Analyser (PEA) is designed to be:
 
 - portable  
