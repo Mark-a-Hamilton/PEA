@@ -1,0 +1,558 @@
+#!/usr/bin/env python3
+# ┌────────────────────────────────────────────────────────┐
+# │ Version        : 2026.09.02-00                         │
+# │ Author         : Mark Hamilton │ Co-Pilot AI assisted  │
+# │ Script Purpose : PEASS Output Analysis Engine (PEA)    │
+# │ Package        : toolbox                               │
+# └────────────────────────────────────────────────────────┘
+#
+# Usage:
+#   pea.py --input <file.lpe|file.wpe> [--profile <json>] [--kb <json>]
+#           [--output <file>] [--dry-run] [--verbose] [--log] [--hashmap]
+#
+# Description:
+#   PEA processes PEASS output files. It auto-detects the type by extension:
+#     - .lpe → LinPEAS (Linux) → uses existing LPA modules (lpa-*) and profiles
+#     - .wpe → WinPEAS (Windows) → NOT SUPPORTED YET (clean message)
+#
+#   In Linux mode, PEA behaves like LPA: it loads PKB/SKB, routes to lpa-*
+#   modules, groups findings, and renders a full text report identical in
+#   structure to LPA.
+#
+# Output Files:
+#   /var/log/pea.py.log            (when --log is used)
+#   .hashmap/pea.py.hash           (when --hashmap is used)
+#   .hashmap/pea.py.timestamp      (when --hashmap is used)
+#
+# End Help
+
+import argparse
+import json
+import os
+import sys
+import re
+import hashlib
+import datetime
+from collections import defaultdict
+
+# ─── Metadata ─────────────────────────────────────────────
+TOOL_NAME = "pea"
+VERSION = "2026.09.02-00"
+
+LOGFILE = f"/var/log/{TOOL_NAME}.log"
+HASHDIR = ".hashmap"
+HASHFILE = f"{HASHDIR}/{TOOL_NAME}.hash"
+TIMESTAMP = f"{HASHDIR}/{TOOL_NAME}.timestamp"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODULE_DIR = os.path.join(BASE_DIR, "modules")
+PROFILE_DIR = os.path.join(BASE_DIR, "profiles")
+
+sys.path.insert(0, MODULE_DIR)
+
+EXTERNAL_MODULE_DIR = "/usr/local/bin/python/modules"
+if os.path.isdir(EXTERNAL_MODULE_DIR) and EXTERNAL_MODULE_DIR not in sys.path:
+    sys.path.insert(0, EXTERNAL_MODULE_DIR)
+
+# ─── Helpers ──────────────────────────────────────────────
+def log(msg, verbose):
+    if verbose:
+        print(f"[LOG] {msg}")
+
+def write_log(dry_run, verbose, logging, hashmap):
+    if logging and not dry_run:
+        os.makedirs(os.path.dirname(LOGFILE), exist_ok=True)
+        with open(LOGFILE, "a") as lf:
+            lf.write("=== PEA Engine Execution ===\n")
+            lf.write(str(datetime.datetime.now()) + "\n")
+            lf.write(f"Version: {VERSION}\n")
+            lf.write(f"Flags: DRY_RUN={dry_run} VERBOSE={verbose} LOGGING={logging} HASHMAP={hashmap}\n")
+            lf.write("============================\n")
+
+def write_hashmap():
+    os.makedirs(HASHDIR, exist_ok=True)
+    with open(TIMESTAMP, "w") as tf:
+        tf.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    with open(HASHFILE, "w") as hf:
+        with open(sys.argv[0], "rb") as sf:
+            hf.write(hashlib.sha256(sf.read()).hexdigest())
+
+# ─── Module Routing (Linux uses lpa-*) ─────────────────────
+def load_module(name):
+    try:
+        return __import__(name)
+    except Exception:
+        return None
+
+def route_to_module(section_id, subsection_id, analysis_type, context):
+    module_name = f"lpa-{analysis_type}".replace("-", "_")
+    module = load_module(module_name)
+    if not module:
+        return None, f"Module '{module_name}' not found"
+    if not hasattr(module, "process"):
+        return None, f"Module '{module_name}' has no 'process' function"
+    try:
+        findings = module.process(section_id, subsection_id, context)
+    except Exception as e:
+        return None, f"Module '{module_name}' raised an exception: {e}"
+    return findings, None
+
+# ─── Core Engine Helpers ──────────────────────────────────
+def extract_section(content, markers):
+    lines = content.splitlines()
+    start_index = None
+    for i, line in enumerate(lines):
+        for marker in markers:
+            if marker.lower() in line.lower():
+                start_index = i + 1
+                break
+        if start_index is not None:
+            break
+    if start_index is None:
+        return None
+    section_lines = []
+    for line in lines[start_index:]:
+        stripped = line.strip()
+        if stripped.startswith("=") and stripped.endswith("="):
+            break
+        section_lines.append(line)
+    section_text = "\n".join(section_lines).strip()
+    return section_text if section_text else None
+
+def extract_skb_cves(content):
+    cves = re.findall(r"CVE-\d{4}-\d{4,7}", content, re.IGNORECASE)
+    return sorted(set(cves))
+
+def filter_skb(pkb, skb_list):
+    filtered = {}
+    for cve in skb_list:
+        if cve not in pkb:
+            filtered[cve] = {"source": "SKB"}
+    return filtered
+
+def bind_kb(issue_key, pkb, skb, unknown_kb_fields, missing_kb_issues):
+    if issue_key in pkb:
+        kb_entry = pkb[issue_key]
+        source = "PKB"
+        known_fields = {
+            "title","severity","category","why","impact",
+            "recommendation","attck","cwe","references",
+        }
+        extra_keys = sorted(set(kb_entry.keys()) - known_fields)
+        if extra_keys:
+            unknown_kb_fields.setdefault(issue_key, set()).update(extra_keys)
+    elif issue_key in skb:
+        kb_entry = {
+            "title": issue_key,
+            "severity": "unknown",
+            "category": "cve",
+            "why": "Detected in LinPEAS output (SKB CVE).",
+            "impact": "Impact not documented in PKB.",
+            "recommendation": "Add a PKB entry for this CVE.",
+            "attck": [], "cwe": [], "references": [],
+        }
+        source = "SKB"
+    else:
+        kb_entry = {
+            "title": issue_key or "Unknown issue",
+            "severity": "unknown",
+            "category": "unknown",
+            "why": "Detected in LinPEAS output.",
+            "impact": "Impact not documented.",
+            "recommendation": "Create a PKB entry for this issue.",
+            "attck": [], "cwe": [], "references": [],
+        }
+        source = "UNKNOWN"
+        if issue_key:
+            missing_kb_issues.add(issue_key)
+    return kb_entry, source
+
+def execute_module(section_id, subsection_id, analysis_type, context, pkb, skb,
+                   unknown_kb_fields, missing_kb_issues):
+    findings, err = route_to_module(section_id, subsection_id, analysis_type, context)
+    if err:
+        kb_entry, _ = bind_kb("module-error", pkb, skb, unknown_kb_fields, missing_kb_issues)
+        return [{
+            "section": section_id,
+            "subsection": subsection_id,
+            "analysis_type": analysis_type,
+            "issue_key": "module-error",
+            "source": "ENGINE",
+            "kb": kb_entry,
+            "evidence": {
+                "items": [f"Module error: {analysis_type}"],
+                "raw_snippets": [],
+                "json_blocks": [],
+                "tokens": [],
+                "details": err,
+            },
+        }]
+    if not findings:
+        return []
+    adapted = []
+    for f in findings:
+        issue_key = f.get("issue")
+        item = f.get("item")
+        details = f.get("details")
+        kb_entry, source = bind_kb(issue_key, pkb, skb, unknown_kb_fields, missing_kb_issues)
+        evidence = {
+            "items": [item] if item else [],
+            "raw_snippets": [],
+            "json_blocks": [],
+            "tokens": [],
+            "details": details,
+        }
+        if "evidence" in f and isinstance(f["evidence"], dict):
+            ev = f["evidence"]
+            extra_items = ev.get("items", [])
+            if isinstance(extra_items, list):
+                evidence["items"].extend(extra_items)
+            raw_snips = ev.get("raw_snippets", [])
+            if isinstance(raw_snips, list):
+                evidence["raw_snippets"].extend(raw_snips)
+            json_blocks = ev.get("json_blocks", [])
+            if isinstance(json_blocks, list):
+                evidence["json_blocks"].extend(json_blocks)
+            tokens = ev.get("tokens", [])
+            if isinstance(tokens, list):
+                evidence["tokens"].extend(tokens)
+            extra_details = ev.get("details")
+            if extra_details and not evidence.get("details"):
+                evidence["details"] = extra_details
+        adapted.append({
+            "section": section_id,
+            "subsection": subsection_id,
+            "analysis_type": analysis_type,
+            "issue_key": issue_key,
+            "source": source,
+            "kb": kb_entry,
+            "evidence": evidence,
+        })
+    return adapted
+
+# ─── Formatter (same structure as LPA) ─────────────────────
+class PEAFormatter:
+    def __init__(self):
+        self.lines = []
+    def banner(self, title):
+        line = "=" * max(40, len(title) + 10)
+        self.lines.append("")
+        self.lines.append(line)
+        self.lines.append(f"{title.upper():^{len(line)}}")
+        self.lines.append(line)
+        self.lines.append("")
+    def section_header(self, name):
+        line = "=" * max(30, len(name) + 10)
+        self.lines.append("")
+        self.lines.append(line)
+        self.lines.append(f"{name.upper():^{len(line)}}")
+        self.lines.append(line)
+        self.lines.append("")
+    def subsection_header(self, name):
+        self.lines.append(f"--- {name} ---")
+        self.lines.append("")
+    def issue_block(self, issue_meta, findings):
+        kb = issue_meta.get("kb", {}) or {}
+        evidence = issue_meta.get("evidence", {}) or {}
+        title = kb.get("title") or issue_meta.get("issue_key") or "Unknown issue"
+        severity = kb.get("severity", "unknown")
+        category = kb.get("category", "unknown")
+        source = issue_meta.get("source", "UNKNOWN")
+        self.lines.append(f"* {title}")
+        self.lines.append(f"  - Severity: {severity}")
+        self.lines.append(f"  - Category: {category}")
+        self.lines.append(f"  - Source: {source}")
+        if "why" in kb:
+            self.lines.append(f"  - Why: {kb['why']}")
+        if "impact" in kb:
+            self.lines.append(f"  - Impact: {kb['impact']}")
+        if "recommendation" in kb:
+            self.lines.append(f"  - Recommendation: {kb['recommendation']}")
+        attck = kb.get("attck") or []
+        if attck:
+            self.lines.append(f"  - MITRE ATT&CK: {', '.join(attck)}")
+        cwe = kb.get("cwe") or []
+        if cwe:
+            self.lines.append(f"  - CWE: {', '.join(cwe)}")
+        refs = kb.get("references") or []
+        if refs:
+            self.lines.append("  - References:")
+            for ref in refs:
+                self.lines.append(f"      - {ref}")
+        items = evidence.get("items") or []
+        if items:
+            self.lines.append("  - Items:")
+            seen = set()
+            for item in items:
+                if item in seen:
+                    continue
+                seen.add(item)
+                self.lines.append(f"      - {item}")
+        details = evidence.get("details")
+        if details:
+            self.lines.append(f"  - Details: {details}")
+        json_blocks = evidence.get("json_blocks") or []
+        if json_blocks:
+            self.lines.append("  - JSON Evidence Blocks:")
+            for jb in json_blocks:
+                self.lines.append("      --- JSON BLOCK START ---")
+                for line in jb.splitlines():
+                    self.lines.append(f"      {line}")
+                self.lines.append("      --- JSON BLOCK END ---")
+        tokens = evidence.get("tokens") or []
+        if tokens:
+            self.lines.append("  - Tokens:")
+            for t in tokens:
+                self.lines.append(f"      - {t}")
+        raw_snippets = evidence.get("raw_snippets") or []
+        if raw_snippets:
+            self.lines.append("  - Raw Snippets:")
+            for snip in raw_snippets:
+                self.lines.append("      --- SNIPPET START ---")
+                for line in snip.splitlines():
+                    self.lines.append(f"      {line}")
+                self.lines.append("      --- SNIPPET END ---")
+        self.lines.append("")
+    def missing_sections_block(self, missing_sections):
+        if not missing_sections:
+            return
+        self.lines.append("")
+        self.lines.append("Missing profile sections (no matching markers in PEAS output):")
+        for sec in missing_sections:
+            self.lines.append(f"  - {sec}")
+        self.lines.append("")
+    def kb_unknown_keys_block(self, unknown_kb_fields):
+        if not unknown_kb_fields:
+            return
+        self.lines.append("")
+        self.lines.append("[KB Unknown Keys]")
+        for issue_key, fields in sorted(unknown_kb_fields.items()):
+            field_list = ", ".join(sorted(fields))
+            self.lines.append(f"  - {issue_key}: {field_list}")
+        self.lines.append("")
+    def missing_kb_entries_block(self, missing_kb_issues):
+        if not missing_kb_issues:
+            return
+        self.lines.append("")
+        self.lines.append("[Missing KB Entries]")
+        for issue_key in sorted(missing_kb_issues):
+            self.lines.append(f"  - {issue_key}")
+        self.lines.append("")
+    def render(self):
+        self.lines.append("---------- Report End ----------")
+        return "\n".join(self.lines)
+
+# ─── Linux Engine (LinPEAS, same behaviour as LPA) ─────────
+def run_linux_engine(input_file, profile_file, kb_file):
+    with open(profile_file, "r") as f:
+        profile = json.load(f)
+    with open(kb_file, "r") as f:
+        pkb = json.load(f)
+    with open(input_file, "r") as f:
+        content = f.read()
+
+    skb_raw = extract_skb_cves(content)
+    skb = filter_skb(pkb, skb_raw)
+
+    all_findings = []
+    missing_sections = []
+    unknown_kb_fields = {}
+    missing_kb_issues = set()
+
+    for section in profile.get("sections", []):
+        section_id = section.get("id", "unknown_section")
+        analysis_type = section.get("analysis_type", "module")
+        markers = section.get("markers", [])
+        section_text = extract_section(content, markers)
+        if not section_text:
+            missing_sections.append(section_id)
+            continue
+        context = {
+            "pkb": pkb,
+            "skb": skb,
+            "content": content,
+            "section_text": section_text,
+        }
+        all_findings.extend(
+            execute_module(
+                section_id,
+                None,
+                analysis_type,
+                context,
+                pkb,
+                skb,
+                unknown_kb_fields,
+                missing_kb_issues,
+            )
+        )
+        for sub in section.get("subsections", []):
+            sub_id = sub.get("id", "unknown_subsection")
+            sub_type = sub.get("analysis_type", analysis_type)
+            sub_markers = sub.get("markers", [])
+            if any(m.lower() in section_text.lower() for m in sub_markers):
+                all_findings.extend(
+                    execute_module(
+                        section_id,
+                        sub_id,
+                        sub_type,
+                        context,
+                        pkb,
+                        skb,
+                        unknown_kb_fields,
+                        missing_kb_issues,
+                    )
+                )
+
+    token_context = {
+        "pkb": pkb,
+        "skb": skb,
+        "content": content,
+        "section_text": content,
+    }
+    token_findings = execute_module(
+        section_id="global",
+        subsection_id=None,
+        analysis_type="token_inventory",
+        context=token_context,
+        pkb=pkb,
+        skb=skb,
+        unknown_kb_fields=unknown_kb_fields,
+        missing_kb_issues=missing_kb_issues,
+    )
+    all_findings.extend(token_findings)
+
+    seen_pairs = set()
+    unique_findings = []
+    for f in all_findings:
+        issue = f.get("issue_key")
+        items = f.get("evidence", {}).get("items", []) or [None]
+        for item in items:
+            pair = (issue, item)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            unique_findings.append(f)
+            break
+
+    grouped = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for f in unique_findings:
+        sec = f.get("section") or "unknown_section"
+        sub = f.get("subsection") or "_root"
+        issue = f.get("issue_key") or "unknown_issue"
+        grouped[sec][sub][issue].append(f)
+
+    summary_context = {
+        "pkb": pkb,
+        "skb": skb,
+        "content": content,
+        "section_text": content,
+        "all_findings": unique_findings,
+    }
+    summary_text = ""
+    summary_module = load_module("lpa_final_summary")
+    if summary_module and hasattr(summary_module, "process"):
+        try:
+            summary_text = summary_module.process("final_summary", None, summary_context)
+        except Exception:
+            summary_text = ""
+    else:
+        summary_text = ""
+
+    formatter = PEAFormatter()
+    formatter.banner("PEA Analysis Report")
+    if summary_text:
+        formatter.section_header("FINAL SUMMARY")
+        for line in summary_text.splitlines():
+            formatter.lines.append(line)
+        formatter.lines.append("")
+
+    for section_id, subsections in grouped.items():
+        formatter.section_header(section_id)
+        root_issues = subsections.get("_root", {})
+        if root_issues:
+            for issue_key, findings_for_issue in root_issues.items():
+                formatter.issue_block(findings_for_issue[0], findings_for_issue)
+        for sub_id, issues in subsections.items():
+            if sub_id == "_root":
+                continue
+            formatter.subsection_header(sub_id)
+            for issue_key, findings_for_issue in issues.items():
+                formatter.issue_block(findings_for_issue[0], findings_for_issue)
+
+    formatter.missing_sections_block(missing_sections)
+    formatter.kb_unknown_keys_block(unknown_kb_fields)
+    formatter.missing_kb_entries_block(missing_kb_issues)
+
+    return formatter.render()
+
+# ─── Main Logic ───────────────────────────────────────────
+def main_logic(args):
+    log(f"Starting {TOOL_NAME} version {VERSION}", args.verbose)
+
+    if args.dry_run:
+        print("[DRY-RUN] PEA execution simulated. No analysis performed.")
+        return
+
+    if not args.input:
+        print("[!] No input file provided.")
+        return
+
+    input_path = os.path.abspath(args.input)
+    ext = os.path.splitext(input_path)[1].lower()
+
+    if ext == ".lpe":
+        mode = "linux"
+    elif ext == ".wpe":
+        print("[!] WinPEAS (.wpe) support not implemented yet.")
+        return
+    else:
+        print(f"[!] Unknown file extension '{ext}'. Expected .lpe or .wpe.")
+        return
+
+    if mode == "linux":
+        profile_path = os.path.join(PROFILE_DIR, args.profile or "lin-default.json")
+        kb_path = os.path.join(PROFILE_DIR, args.kb or "lin-kb.json")
+        output_path = os.path.abspath(
+            args.output or f"{os.path.splitext(os.path.basename(args.input))[0]}-pea.out"
+        )
+
+        log(f"Mode: {mode}", args.verbose)
+        log(f"PEAS file: {input_path}", args.verbose)
+        log(f"Profile file: {profile_path}", args.verbose)
+        log(f"KB file: {kb_path}", args.verbose)
+        log(f"Output file: {output_path}", args.verbose)
+
+        result = run_linux_engine(input_path, profile_path, kb_path)
+
+        with open(output_path, "w") as f:
+            f.write(result)
+
+        print(f"[PEA] Analysis complete → {output_path}")
+
+# ─── Main Entry Point ─────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(
+        description="PEA - PEASS Output Analysis Engine (Linux via LinPEAS, WinPEAS future)"
+    )
+
+    parser.add_argument("-i", "--input", required=True, help="PEASS output file (.lpe or .wpe)")
+    parser.add_argument("-p", "--profile", help="Profile JSON filename (default: lpa-default.json)")
+    parser.add_argument("-k", "--kb", help="Knowledge base JSON filename (default: lpa-kb.json)")
+    parser.add_argument("-o", "--output", help="Output report file")
+
+    parser.add_argument("--dry-run", action="store_true", help="Simulate actions without executing")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--log", action="store_true", help="Write execution details to log file")
+    parser.add_argument("--hashmap", action="store_true", help="Generate traceability files")
+
+    args = parser.parse_args()
+
+    main_logic(args)
+
+    if args.log:
+        write_log(args.dry_run, args.verbose, args.log, args.hashmap)
+    if args.hashmap:
+        write_hashmap()
+
+if __name__ == "__main__":
+    main()
