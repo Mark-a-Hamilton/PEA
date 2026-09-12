@@ -36,6 +36,21 @@ This makes LinPEAS output:
 ---
 
 # 📘 **Documentation Overview**
+### **📘 [Installation](./Docs/nstall.md)**  
+The Privilege‑Escalation‑Analyser (PEA) is designed to be:
+
+- portable  
+- self‑contained  
+- easy to install  
+
+This section provides:
+
+- recommended installation method  
+- guidance for custom directory layouts  
+- notes about module/profile placement  
+- instructions for adding PEA to your system PATH  
+
+---
 
 ### **📘 [How PEA Works](./Docs/pea.md)**  
 A practical guide explaining:
@@ -78,22 +93,6 @@ A methodology guide explaining:
 - how to identify exploit paths  
 - how to prioritise remediation  
 - how to apply privilege‑escalation logic consistently  
-
----
-
-### **📘 [Installation](./Docs/nstall.md)**  
-The Privilege‑Escalation‑Analyser (PEA) is designed to be:
-
-- portable  
-- self‑contained  
-- easy to install  
-
-This section provides:
-
-- recommended installation method  
-- guidance for custom directory layouts  
-- notes about module/profile placement  
-- instructions for adding PEA to your system PATH  
 
 ---
 
