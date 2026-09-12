@@ -1,5 +1,5 @@
-# **Privilege‑Escalation‑Analyser (PEA)**  
-A structured analysis engine for processing raw LinPEAS output and converting it into a clear, modular, vulnerability‑focused privilege‑escalation report.
+# **Privilege Escalation Analyser (PEA)**  
+A structured analysis engine for processing raw LinPEAS output and converting it into a clear, modular, vulnerability‑focused privilege escalation report.
 
 PEA does **not** replace LinPEAS — it **extends** it.
 
@@ -43,7 +43,7 @@ A practical guide explaining:
 
 ---
 
-### **📘 profiles.md — Profiles & Structure**  
+### **📘 [Profiles & Structure](.\Docs\profiles.md)**  
 A technical breakdown of:
 
 - how `lin-default.json` defines sections, markers, and subsections  
@@ -54,7 +54,7 @@ A technical breakdown of:
 
 ---
 
-### **📘 modules.md — Analysis Modules**  
+### **📘 [Analysis Modules](.\Docs\modules.md)**  
 A developer‑focused overview describing:
 
 - each analysis module  
@@ -76,7 +76,7 @@ A methodology guide explaining:
 
 ---
 
-### **📘 Installation (from Install.md)**  
+### **📘 [Installation](.\Docs\nstall.md)**  
 The Privilege‑Escalation‑Analyser (PEA) is designed to be:
 
 - portable  
@@ -148,16 +148,3 @@ Special thanks to the creators of **LinPEAS** and **PEASS‑NG**.
 Their work is foundational to Linux privilege‑escalation research and tooling.
 
 ---
-
-## ✅ **Your next step**
-If you want, I can now generate:
-
-- **pea.md**  
-- **modules.md**  
-- **profiles.md**  
-- **Install.md**  
-- **Privilege‑Escalation‑Principles.md**  
-- A **folder structure** for the repo  
-- A **CV‑ready description** for your PEA project  
-
-Just tell me which file you want next.
