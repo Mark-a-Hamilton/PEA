@@ -4,9 +4,20 @@ A structured analysis engine for processing raw LinPEAS output and converting it
 PEA does **not** replace LinPEAS — it **extends** it.
 
 LinPEAS is one of the most widely used Linux privilege‑escalation enumeration tools, and without LinPEAS this analyser would not exist.
-
+****************************
 👉 **LinPEAS Repository**  
 (You will link this in your final README)
+## **Acknowledgement of the LinPEAS Project**
+
+The **Privilege‑Escalation‑Analyser (PEA)** is built entirely on the foundation provided by the **LinPEAS** project. LinPEAS is one of the most widely used and respected Linux privilege‑escalation enumeration tools in the security community, and without its comprehensive output and structured methodology, this analyser would not exist.
+
+PEA does **not** replace LinPEAS — it **extends** it by transforming raw LinPEAS output into a structured, modular, and easily interpretable privilege‑escalation report. All credit for the underlying enumeration logic, section markers, and PrivEsc discovery techniques belongs to the creators and maintainers of **PEASS‑NG / LinPEAS**.
+
+This repository exists to support learning, defensive analysis, and workflow automation built on top of the exceptional work provided by the LinPEAS team.
+*****************************
+---
+
+If you want, I can also generate a **shorter version**, a **more formal version**, or a **more technical version** depending on how you want your README to feel.
 
 ---
 
