@@ -1,8 +1,6 @@
 # **Privilege Escalation Analyser (PEA)**  
 A structured analysis engine for processing raw LinPEAS output and converting it into a clear, modular, vulnerability‑focused privilege escalation report.
 
-PEA does **not** replace LinPEAS — it **extends** it.
-
 ---
  
 ## 👉 **[Acknowledgement of the LinPEAS Project](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)**
