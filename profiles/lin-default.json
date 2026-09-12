@@ -1,0 +1,152 @@
+{
+  "profile_name": "lpa-default",
+  "version": "3.0",
+  "sections": [
+
+    {
+      "id": "system_overview",
+      "markers": ["OS", "Operating System", "Distro", "Hostname", "Uptime", "Hardware"],
+      "analysis_type": "system_overview",
+      "enabled": true,
+      "subsections": [
+        { "id": "os_info", "markers": ["OS", "Distro"] },
+        { "id": "hostname_info", "markers": ["Hostname"] },
+        { "id": "uptime_info", "markers": ["Uptime"] },
+        { "id": "users_list", "markers": ["Users"] },
+        { "id": "groups_list", "markers": ["Groups"] }
+      ]
+    },
+
+    {
+      "id": "kernel_exposures",
+      "markers": ["Kernel", "uname", "CVE", "Exploit"],
+      "analysis_type": "cve_collapse",
+      "enabled": true,
+      "subsections": [
+        { "id": "kernel_exploit_possible", "markers": ["Exploit", "DirtyCow", "OverlayFS"] },
+        { "id": "unpatched_cve", "markers": ["CVE", "vulnerable"] },
+        { "id": "kernel_modules_writable", "markers": ["modules", "write"] },
+        { "id": "unrestricted_dmesg", "markers": ["dmesg"] },
+        { "id": "proc_mem_accessible", "markers": ["proc", "mem"] }
+      ]
+    },
+
+    {
+      "id": "sudo_misconfigurations",
+      "markers": ["sudo", "sudoers", "NOPASSWD"],
+      "analysis_type": "misconfig_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "sudo_nopasswd", "markers": ["NOPASSWD"] },
+        { "id": "sudo_wildcard", "markers": ["*"] },
+        { "id": "sudo_shell_escape", "markers": ["shell escape", "vim", "less"] },
+        { "id": "sudo_env_keep", "markers": ["env_keep"] },
+        { "id": "sudo_edit_abuse", "markers": ["sudoedit"] }
+      ]
+    },
+
+    {
+      "id": "credential_exposures",
+      "markers": ["password", "credentials", "ssh", "private key", "token", "secret"],
+      "analysis_type": "credential_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "shadow_readable", "markers": ["shadow"] },
+        { "id": "shadow_writable", "markers": ["shadow"] },
+        { "id": "passwd_writable", "markers": ["passwd"] },
+        { "id": "backup_file_with_creds", "markers": ["backup"] },
+        { "id": "ssh_key_exposed", "markers": ["PRIVATE KEY"] },
+        { "id": "password_in_history", "markers": ["history"] },
+        { "id": "password_in_env", "markers": ["env"] },
+        { "id": "password_in_script", "markers": ["script"] },
+        { "id": "db_creds_exposed", "markers": ["db", "database"] }
+      ]
+    },
+
+    {
+      "id": "environmental_issues",
+      "markers": ["PATH", "LD_PRELOAD", "LD_LIBRARY_PATH"],
+      "analysis_type": "environmental_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "path_hijack", "markers": ["PATH"] },
+        { "id": "ld_preload_injection", "markers": ["LD_PRELOAD"] },
+        { "id": "ld_library_path_hijack", "markers": ["LD_LIBRARY_PATH"] }
+      ]
+    },
+
+    {
+      "id": "filesystem_permissions",
+      "markers": ["writable", "world-writable", "permissions"],
+      "analysis_type": "misconfig_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "world_writable_file", "markers": ["world-writable"] },
+        { "id": "world_writable_directory", "markers": ["world-writable"] },
+        { "id": "weak_file_permissions", "markers": ["permissions"] },
+        { "id": "weak_umask", "markers": ["umask"] }
+      ]
+    },
+
+    {
+      "id": "service_misconfigurations",
+      "markers": ["systemd", "service", "cron"],
+      "analysis_type": "execution_flow",
+      "enabled": true,
+      "subsections": [
+        { "id": "cron_writable_script", "markers": ["cron"] },
+        { "id": "cron_writable_directory", "markers": ["cron"] },
+        { "id": "cron_path_hijack", "markers": ["cron"] },
+        { "id": "weak_service_permissions", "markers": ["service"] },
+        { "id": "systemd_path_hijack", "markers": ["systemd"] },
+        { "id": "systemd_unit_writable", "markers": ["systemd"] }
+      ]
+    },
+
+    {
+      "id": "container_risks",
+      "markers": ["docker", "container", "lxc"],
+      "analysis_type": "container_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "docker_group_member", "markers": ["docker group"] },
+        { "id": "lxc_privileged_container", "markers": ["lxc"] }
+      ]
+    },
+
+    {
+      "id": "capabilities",
+      "markers": ["capabilities", "cap_net_raw", "cap_setuid"],
+      "analysis_type": "binary_capability_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "dangerous_capability", "markers": ["cap_setuid", "cap_sys_admin"] },
+        { "id": "cap_net_raw", "markers": ["cap_net_raw"] }
+      ]
+    },
+
+    {
+      "id": "suid_binaries",
+      "markers": ["SUID", "SGID"],
+      "analysis_type": "binary_capability_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "suid_nonroot", "markers": ["SUID"] },
+        { "id": "suid_writable", "markers": ["SUID"] },
+        { "id": "suid_custom_binary", "markers": ["custom"] }
+      ]
+    },
+
+    {
+      "id": "network_exposures",
+      "markers": ["network", "NFS", "SSH"],
+      "analysis_type": "environmental_analysis",
+      "enabled": true,
+      "subsections": [
+        { "id": "nfs_root_squash_disabled", "markers": ["NFS"] },
+        { "id": "nfs_writable_share", "markers": ["NFS"] },
+        { "id": "ssh_config_weak", "markers": ["SSH"] }
+      ]
+    }
+  ]
+}
