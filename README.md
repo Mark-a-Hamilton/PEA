@@ -3,8 +3,6 @@ A structured analysis engine for processing raw LinPEAS output and converting it
 
 PEA does **not** replace LinPEAS — it **extends** it.
 
-LinPEAS is one of the most widely used Linux privilege‑escalation enumeration tools, and without LinPEAS this analyser would not exist.
-
 ---
  
 ## 👉 **[Acknowledgement of the LinPEAS Project](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)**
