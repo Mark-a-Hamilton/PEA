@@ -1,2 +1,2 @@
-# PEA-Privilege-Escalation-Analyser
+# PEA Privilege Escalation Analyser
 Removes the noise from PEASS output
