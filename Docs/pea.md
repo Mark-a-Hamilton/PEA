@@ -63,7 +63,7 @@ Disconnect once the environment is restored.
 Execute PEA locally:
 
 ```bash
-pea linpeas-output.lpe
+pea -i linpeas-output.lpe
 ```
 
 PEA will generate a structured analysis report containing:
