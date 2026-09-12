@@ -77,7 +77,7 @@ A developer‑focused overview describing:
 
 ---
 
-### **📘 (Privilege Escalation Principles)[./Docs/Privilege‑Escalation‑Principles.md]**  
+### **📘 [Privilege Escalation Principles](./Docs/Privilege‑Escalation‑Principles.md)**  
 A methodology guide explaining:
 
 - how to evaluate findings  
