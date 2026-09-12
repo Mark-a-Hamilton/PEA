@@ -32,7 +32,7 @@ This makes LinPEAS output:
 
 # 📘 **Documentation Overview**
 
-### **📘 pea.md — (How PEA Works)[.\Docs\pea.md]**  
+### **📘 [How PEA Works](.\Docs\pea.md)**  
 A practical guide explaining:
 
 - how to run PEA  
