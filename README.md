@@ -34,7 +34,7 @@ This makes LinPEAS output:
 ---
 
 # 📘 **Documentation Overview**
-### **📘 [Installation](./Docs/nstall.md)**  
+### **📘 [Installation](./Docs/install.md)**  
 The Privilege‑Escalation‑Analyser (PEA) is designed to be:
 
 - portable  
