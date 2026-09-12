@@ -15,10 +15,6 @@ This repository exists to support learning, defensive analysis, and workflow aut
 
 ---
 
-If you want, I can also generate a **shorter version**, a **more formal version**, or a **more technical version** depending on how you want your README to feel.
-
----
-
 ## **What PEA Does**
 
 PEA takes raw, unstructured LinPEAS output and:
